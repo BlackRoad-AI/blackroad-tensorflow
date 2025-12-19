@@ -497,6 +497,7 @@ cc_library(
         "//xla/service/gpu:ir_emission_utils",
         "//xla/stream_executor:device_address",
         "//xla/stream_executor:device_address_allocator",
+        "//xla/stream_executor:kernel_stats",
         "//xla/stream_executor:stream",
         "//xla/stream_executor/gpu:redzone_allocator",
         "//xla/tsl/platform:errors",

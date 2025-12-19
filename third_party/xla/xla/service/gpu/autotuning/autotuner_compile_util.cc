@@ -41,6 +41,7 @@ limitations under the License.
 #include "xla/shape.h"
 #include "xla/shape_util.h"
 #include "xla/stream_executor/device_address.h"
+#include "xla/stream_executor/kernel_stats.h"
 #include "xla/stream_executor/stream.h"
 #include "xla/tsl/platform/errors.h"
 #include "xla/tsl/platform/statusor.h"
@@ -79,9 +80,7 @@ AutotunerCompileUtil::AutotunerCompileUtil(
       stream_(stream),
       allocator_(allocator),
       opts_(opts) {
-  GpuCodegenBackend::AdjustDebugOptionsForAutotuning(
-      opts_,
-      /*force_allow_register_spills=*/false);
+  GpuCodegenBackend::AdjustDebugOptionsForAutotuning(opts_);
 }
 
 absl::StatusOr<AutotunerCompileUtil::ProfilingOutput>
@@ -137,6 +136,16 @@ absl::StatusOr<std::unique_ptr<Executable>> AutotunerCompileUtil::Compile(
     VLOG(5) << "Compilation failed with status " << out.status()
             << " that is ignored";
     return std::unique_ptr<Executable>();
+  }
+  if (opts_.xla_gpu_filter_kernels_spilling_registers_on_autotuning()) {
+    ModuleStats module_stats = out.value()->module_stats();
+    for (const auto& [kernel, stats] : module_stats) {
+      if (stats.store_bytes_spilled > 0 || stats.load_bytes_spilled > 0) {
+        VLOG(5) << "Discarding compilation for kernel " << kernel
+                << " due to register spilling.";
+        return std::unique_ptr<Executable>();
+      }
+    }
   }
   return out;
 }
