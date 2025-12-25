@@ -141,11 +141,12 @@ class NamedSharding {
                          /*unreduced_axes=*/{}, metadata);
   }
 
-  bool IsReplicated() const {
+  bool IsFullyReplicated() const {
     return !IsMaximal() &&
-           absl::c_all_of(dim_shardings_, [](const DimensionSharding& s) {
-             return s.axes().empty();
-           });
+           absl::c_all_of(
+               dim_shardings_,
+               [](const DimensionSharding& s) { return s.axes().empty(); }) &&
+           replicated_axes_.empty() && unreduced_axes_.empty();
   }
 
   bool IsMaximal() const { return mesh_.IsMaximal(); }
@@ -154,7 +155,7 @@ class NamedSharding {
   //
   // This checks for both replicated and maximal sharding, as in both cases tile
   // size is same as input size.
-  bool IsTileMaximal() const { return IsReplicated() || IsMaximal(); }
+  bool IsTileMaximal() const { return IsFullyReplicated() || IsMaximal(); }
 
   const TileAssignment& device_assignment() const {
     return mesh_.device_assignment();

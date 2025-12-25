@@ -20,6 +20,7 @@ limitations under the License.
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -97,6 +98,11 @@ Mesh::Mesh(TileAssignment device_assignment,
 }
 
 std::string Mesh::ToString() const {
+  if (IsMaximal()) {
+    return absl::StrCat("@maximal_mesh<device_ids=[",
+                        device_assignment_.array()(0), "]>");
+  }
+
   std::string mesh_str = "@mesh";
   // Add the mesh axes names and sizes.
   std::vector<std::string> formatted_axes_names;
@@ -111,7 +117,7 @@ std::string Mesh::ToString() const {
   std::string device_assignment_str = "";
   if (!(iota.has_value() && iota->reshape_dims().size() == 1)) {
     device_assignment_str =
-        absl::StrCat("(", device_assignment_.ArrayToString(), ")");
+        absl::StrCat(", device_ids=(", device_assignment_.ArrayToString(), ")");
   }
   absl::StrAppend(&mesh_str, "<", absl::StrJoin(formatted_axes_names, ","), ">",
                   device_assignment_str);
@@ -192,10 +198,9 @@ Mesh Mesh::FromProto(const MeshProto& proto) {
   return Mesh(tile_assignment, mesh_axis_names_span);
 }
 
-std::string AxisRef::ToString(const Mesh& mesh) const {
-  CHECK_GE(mesh_axis_index_, 0);
-  CHECK_LT(mesh_axis_index_, mesh.axis_names().size());
-  std::string axis_str = mesh.axis_names()[mesh_axis_index_];
+std::string AxisRef::ToString(const Mesh* mesh) const {
+  std::string axis_str = mesh ? mesh->axis_names()[mesh_axis_index_]
+                              : absl::StrCat(mesh_axis_index_);
   if (sub_axis_info_.has_value()) {
     absl::StrAppend(&axis_str, ":(", sub_axis_info_->pre_size, ")",
                     sub_axis_info_->size);
@@ -350,6 +355,14 @@ int64_t AxisRef::size(const Mesh& mesh) const {
   }
 
   return mesh.axis_size(mesh_axis_index_);
+}
+
+std::ostream& operator<<(std::ostream& out, const Mesh& mesh) {
+  return out << mesh.ToString();
+}
+
+std::ostream& operator<<(std::ostream& out, const AxisRef& axis) {
+  return out << axis.ToString();
 }
 
 bool AxesCanCoexistWithoutOverlap(absl::Span<const AxisRef> axes) {
