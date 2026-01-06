@@ -46,6 +46,7 @@ tf_proto_library(
     protodeps = [
         "//xla:autotune_results_proto",
         "//xla/stream_executor/cuda:cuda_compute_capability_proto",
+        "//xla/stream_executor/sycl:oneapi_compute_capability_proto",
     ],
 )
 
@@ -64,6 +65,7 @@ cc_library(
         ":semantic_version",
         "//xla/stream_executor/cuda:cuda_compute_capability",
         "//xla/stream_executor/rocm:rocm_compute_capability",
+        "//xla/stream_executor/sycl:oneapi_compute_capability",
         "//xla/tsl/lib/math:math_util",
         "//xla/tsl/platform:statusor",
         "@com_google_absl//absl/log",
@@ -229,6 +231,7 @@ cc_library(
         ":platform",
         ":stream",
         "//xla/hlo/testlib:test",
+        "//xla/stream_executor/sycl:oneapi_compute_capability",
         "@com_google_absl//absl/functional:any_invocable",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
