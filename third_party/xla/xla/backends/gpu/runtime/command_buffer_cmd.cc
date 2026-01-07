@@ -902,7 +902,7 @@ ComputationIdCmd::ComputationIdCmd(BufferAllocation::Slice dest, Kind kind)
       kind_(kind) {}
 
 CommandBufferCmd::BufferUseVector ComputationIdCmd::buffers() const {
-  return {BufferUse::Write(dest_)};
+  return {BufferUse::Write(dest_, ShapeUtil::MakeShape(S32, {}))};
 }
 
 absl::Status ComputationIdCmd::Record(
@@ -917,8 +917,9 @@ absl::Status ComputationIdCmd::Record(
       execute_params.collective_params->device_assn->LogicalIdForDevice(
           global_device_id));
 
-  uint32_t value = kind_ == Kind::kReplica ? logical_id.replica_id
-                                           : logical_id.computation_id;
+  uint32_t value = kind_ == Kind::kReplica
+                       ? static_cast<uint32_t>(logical_id.replica_id)
+                       : static_cast<uint32_t>(logical_id.computation_id);
 
   VLOG(5) << "ComputationIdCmd"
           << ": kind=" << (kind_ == Kind::kReplica ? "replica" : "partition")
@@ -1252,7 +1253,7 @@ absl::Status Memset32Cmd::Record(const Thunk::ExecuteParams& execute_params,
 }
 
 CommandBufferCmd::BufferUseVector Memset32Cmd::buffers() const {
-  return {BufferUse::Write(dst_)};
+  return {BufferUse::Write(dst_, ShapeUtil::MakeShape(U32, {}))};
 }
 
 //===----------------------------------------------------------------------===//

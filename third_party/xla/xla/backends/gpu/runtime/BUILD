@@ -956,6 +956,8 @@ xla_test(
     name = "gpublas_lt_matmul_thunk_test",
     srcs = ["gpublas_lt_matmul_thunk_test.cc"],
     backends = ["gpu"],
+    tags = ["pjrt_migration_candidate"],
+    use_legacy_runtime = True,
     deps = [
         ":gpublas_lt_matmul_thunk",
         ":thunk",
@@ -1256,6 +1258,7 @@ cc_library(
     deps = [
         ":shaped_slice",
         ":thunk",
+        "//xla:shape_util",
         "//xla/runtime:buffer_use",
         "//xla/service:buffer_assignment",
         "//xla/stream_executor:device_address",
@@ -1635,6 +1638,8 @@ xla_test(
     name = "collective_broadcast_thunk_test",
     srcs = ["collective_broadcast_thunk_test.cc"],
     backends = ["gpu"],
+    tags = ["pjrt_migration_candidate"],
+    use_legacy_runtime = True,
     deps = [
         ":collective_broadcast_thunk",
         ":collective_thunk",
@@ -1719,6 +1724,8 @@ xla_test(
     name = "collective_permute_thunk_test",
     srcs = ["collective_permute_thunk_test.cc"],
     backends = ["gpu"],
+    tags = ["pjrt_migration_candidate"],
+    use_legacy_runtime = True,
     deps = [
         ":collective_permute_thunk",
         ":collective_thunk",
@@ -2211,6 +2218,7 @@ cc_library(
     deps = [
         ":thunk",
         ":thunk_proto_cc",
+        "//xla:shape_util",
         "//xla/runtime:buffer_use",
         "//xla/runtime:device_id",
         "//xla/service:buffer_assignment",
@@ -3595,6 +3603,8 @@ xla_test(
     name = "runtime_intrinsics_test",
     srcs = ["runtime_intrinsics_test.cc"],
     backends = ["gpu"],
+    tags = ["pjrt_migration_candidate"],
+    use_legacy_runtime = True,
     deps = [
         ":runtime_intrinsics",
         "//xla:literal",
