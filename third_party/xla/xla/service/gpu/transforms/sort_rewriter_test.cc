@@ -49,9 +49,8 @@ namespace {
 
 namespace m = ::xla::match;
 
-class SortRewriterTest
-    : public HloPjRtInterpreterReferenceMixin<HloPjRtTestBase>,
-      public ::testing::WithParamInterface<std::tuple<PrimitiveType, bool>> {
+class SortRewriterTestBase
+    : public HloPjRtInterpreterReferenceMixin<HloPjRtTestBase> {
  public:
   void SetUp() override {
     HloPjRtInterpreterReferenceMixin<HloPjRtTestBase>::SetUp();
@@ -88,6 +87,10 @@ class SortRewriterTest
  private:
   stream_executor::Platform* test_platform_ = nullptr;
 };
+
+class SortRewriterTest
+    : public SortRewriterTestBase,
+      public ::testing::WithParamInterface<std::tuple<PrimitiveType, bool>> {};
 
 // Basic sort: ascending.
 TEST_F(SortRewriterTest, SortKeysLessThan) {
@@ -651,6 +654,87 @@ INSTANTIATE_TEST_SUITE_P(
 TEST_F(SortRewriterTest, AlwaysUsesCubSort) {
   EXPECT_EQ(SortRewriter::SortMode(), SortRewriter::Mode::kAlways);
 }
+
+struct SortArgsortParams {
+  PrimitiveType key_type;
+  bool ascending;
+  PrimitiveType index_type;
+  bool should_use_cub;
+};
+
+class SortRewriterArgsortTest
+    : public SortRewriterTestBase,
+      public ::testing::WithParamInterface<SortArgsortParams> {};
+
+TEST_P(SortRewriterArgsortTest, SortNumpyOrderArgsort) {
+  constexpr char kHloTpl[] = R"(
+numpy_order_comparator {
+  lhs = $0[] parameter(0)
+  p2 = $2[] parameter(2)
+  p3 = $2[] parameter(3)
+  lhs_is_nan = pred[] compare(lhs, lhs), direction=NE
+  c_nan = $0[] constant(nan)
+  c_zero = $0[] constant(0)
+  lhs_is_zero = pred[] compare(lhs, c_zero), direction=EQ
+  lhs_no_neg_zero = $0[] select(lhs_is_zero, c_zero, lhs)
+  lhs_no_neg_zero_or_nan = $0[] select(lhs_is_nan, c_nan, lhs_no_neg_zero)
+  rhs = $0[] parameter(1)
+  rhs_is_nan = pred[] compare(rhs, rhs), direction=NE
+  rhs_is_zero = pred[] compare(rhs, c_zero), direction=EQ
+  rhs_no_neg_zero = $0[] select(rhs_is_zero, c_zero, rhs)
+  rhs_no_neg_zero_or_nan = $0[] select(rhs_is_nan, c_nan, rhs_no_neg_zero)
+  ROOT compare.20017 = pred[] compare(lhs_no_neg_zero_or_nan, rhs_no_neg_zero_or_nan), direction=$1, type=TOTALORDER
+}
+
+ENTRY main {
+  p = $0[16,128] parameter(0)
+  i = $2[16,128] iota(), iota_dimension=1
+  ROOT sort = ($0[16,128], $2[16,128]) sort(p, i), dimensions={1}, is_stable=true, to_apply=numpy_order_comparator
+})";
+  auto params = GetParam();
+  std::string hlo_str = absl::Substitute(
+      kHloTpl, primitive_util::LowercasePrimitiveTypeName(params.key_type),
+      params.ascending ? "LT" : "GT",
+      primitive_util::LowercasePrimitiveTypeName(params.index_type));
+
+  ASSERT_OK_AND_ASSIGN(auto module, ParseAndReturnVerifiedModule(hlo_str));
+  bool changed = RunModuleAndPass(module.get());
+  if (params.should_use_cub) {
+    EXPECT_TRUE(changed) << module->ToString();
+    EXPECT_THAT(module->entry_computation()->instructions(),
+                ::testing::Contains(GmockMatch(m::CustomCall(
+                    {kCubDeviceRadixSortUnassignedScratchSizeTarget}))));
+  } else {
+    EXPECT_FALSE(changed) << module->ToString();
+  }
+}
+
+std::vector<SortArgsortParams> GetSortArgsortParams() {
+  std::vector<SortArgsortParams> params;
+  for (bool ascending : {true, false}) {
+    for (PrimitiveType idx_type : {S16, S32}) {
+      for (PrimitiveType key_type : {F16, BF16, F32}) {
+        params.push_back(
+            {key_type, ascending, idx_type, /*should_use_cub=*/true});
+      }
+      // F64 is not supported on CUB argsort.
+      params.push_back({F64, ascending, idx_type, /*should_use_cub=*/false});
+    }
+  }
+  return params;
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    SortRewriterArgsort, SortRewriterArgsortTest,
+    ::testing::ValuesIn(GetSortArgsortParams()),
+    [](const ::testing::TestParamInfo<SortRewriterArgsortTest::ParamType>&
+           info) {
+      return absl::StrCat(
+          primitive_util::LowercasePrimitiveTypeName(info.param.key_type),
+          info.param.ascending ? "_asc" : "_desc", "_",
+          primitive_util::LowercasePrimitiveTypeName(info.param.index_type),
+          info.param.should_use_cub ? "_cub" : "_nocub");
+    });
 
 }  // namespace
 }  // namespace gpu
