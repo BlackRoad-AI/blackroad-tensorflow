@@ -44,7 +44,7 @@ namespace {
 
 using ::testing::HasSubstr;
 
-PLATFORM_DEFINE_ID(kFakePlatformId);
+PLATFORM_DEFINE_ID(kFakePlatformId, FakePlatform);
 
 AttrValue TypeAttrValue(DataType type) {
   AttrValue attr_value;
@@ -318,14 +318,15 @@ TEST(XlaJitCompiledCpuFunction, SumVariable) {
 TEST(XlaJitCompiledCpuFunction, CanCompileWithAdditionalPlatform) {
   class FakePlatform : public se::Platform {
    public:
-    FakePlatform() : name_("FakePlatform") {}
     ~FakePlatform() override {}
 
     se::Platform::Id id() const override { return kFakePlatformId; }
 
     int VisibleDeviceCount() const override { return 0; }
 
-    const std::string& Name() const override { return name_; }
+    const std::string& Name() const override {
+      return kFakePlatformId->GetNameAsStringRef();
+    }
 
     absl::StatusOr<std::unique_ptr<se::DeviceDescription>> DescriptionForDevice(
         int ordinal) const override {
@@ -336,9 +337,6 @@ TEST(XlaJitCompiledCpuFunction, CanCompileWithAdditionalPlatform) {
         int ordinal) override {
       return nullptr;
     }
-
-   private:
-    std::string name_;
   };
 
   TF_EXPECT_OK(
@@ -348,7 +346,7 @@ TEST(XlaJitCompiledCpuFunction, CanCompileWithAdditionalPlatform) {
   });
 
   EXPECT_THAT(xla::PlatformUtil::GetDefaultPlatform().status().message(),
-              HasSubstr("FakePlatform"));
+              HasSubstr(kFakePlatformId->GetName()));
 
   GraphDef graph_def = SumGraph();
   tf2xla::Config config = SumConfig();

@@ -35,7 +35,7 @@ namespace host {
 // initializer.
 class HostPlatform : public Platform {
  public:
-  HostPlatform();
+  HostPlatform() = default;
   ~HostPlatform() override;
 
   Platform::Id id() const override;
@@ -58,9 +58,6 @@ class HostPlatform : public Platform {
   // Ownership IS transferred to the caller.
   absl::StatusOr<std::unique_ptr<StreamExecutor>> GetUncachedExecutor(
       int ordinal);
-
-  // This platform's name.
-  std::string name_;
 
   // Cache of created StreamExecutors.
   ExecutorCache executor_cache_;

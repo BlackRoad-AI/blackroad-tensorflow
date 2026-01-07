@@ -30,7 +30,7 @@ namespace gpu {
 // initializer.
 class CudaPlatform : public Platform {
  public:
-  CudaPlatform();
+  CudaPlatform() = default;
   ~CudaPlatform() override;
 
   // Platform interface implementation:
@@ -54,9 +54,6 @@ class CudaPlatform : public Platform {
   // Ownership IS transferred to the caller.
   absl::StatusOr<std::unique_ptr<StreamExecutor>> GetUncachedExecutor(
       int ordinal);
-
-  // This platform's name.
-  std::string name_;
 
   // Cache of created executors.
   ExecutorCache executor_cache_;

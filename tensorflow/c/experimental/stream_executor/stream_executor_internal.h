@@ -25,6 +25,7 @@ limitations under the License.
 
 #include "absl/functional/any_invocable.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 #include "tensorflow/c/experimental/stream_executor/stream_executor.h"
 #include "tensorflow/c/tf_status.h"
 #include "tensorflow/c/tf_status_helper.h"
@@ -68,6 +69,16 @@ inline SP_DeviceMemoryBase DeviceMemoryBaseToC(const DeviceMemoryBase* mem) {
   return device_memory_base;
 }
 
+class InterpreterPlatformIdInfo : public Platform::IdInfo {
+ public:
+  explicit InterpreterPlatformIdInfo(absl::string_view name) : name_(name) {}
+
+  const std::string& GetNameAsStringRef() const override { return name_; }
+
+ private:
+  std::string name_;
+};
+
 // This file implements core stream executor base classes in terms of
 // the C API defined in stream_executor.h. A class "CSomething" represents a
 // "Something" that can be manipulated via calls in the C interface.
@@ -81,8 +92,15 @@ class CPlatform : public Platform {
                      SP_TimerFns timer_fns);
   ~CPlatform() override;
 
-  Id id() const override { return const_cast<int*>(&plugin_id_value_); }
-  const std::string& Name() const override { return name_; }
+  Id id() const override {
+    // const cast is safe because InterpreterPlatformIdInfo cannot be mutated
+    // after construction.
+    return const_cast<InterpreterPlatformIdInfo*>(
+        &interpreter_platform_id_info_);
+  }
+  const std::string& Name() const override {
+    return interpreter_platform_id_info_.GetNameAsStringRef();
+  }
   int VisibleDeviceCount() const override {
     int visible_device_count = 0;
     tensorflow::TF_StatusPtr c_status(TF_NewStatus());
@@ -115,8 +133,7 @@ class CPlatform : public Platform {
   SP_DeviceFns device_fns_;
   SP_StreamExecutor stream_executor_;
   SP_TimerFns timer_fns_;
-  const std::string name_;
-  int plugin_id_value_;
+  InterpreterPlatformIdInfo interpreter_platform_id_info_;
   stream_executor::ExecutorCache executor_cache_;
 };
 

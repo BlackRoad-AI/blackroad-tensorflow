@@ -301,7 +301,10 @@ cc_library(
     name = "tpu_platform_id",
     srcs = ["tpu_platform_id.cc"],
     hdrs = ["tpu_platform_id.h"],
-    deps = ["//xla/stream_executor:platform"],
+    deps = [
+        "//xla/stream_executor:platform",
+        "@com_google_absl//absl/base:no_destructor",
+    ],
 )
 
 cc_library(

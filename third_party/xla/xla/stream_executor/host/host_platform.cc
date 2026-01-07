@@ -34,8 +34,6 @@ limitations under the License.
 namespace stream_executor {
 namespace host {
 
-HostPlatform::HostPlatform() : name_("Host") {}
-
 HostPlatform::~HostPlatform() {}
 
 Platform::Id HostPlatform::id() const { return kHostPlatformId; }
@@ -44,7 +42,9 @@ int HostPlatform::VisibleDeviceCount() const {
   return std::thread::hardware_concurrency();
 }
 
-const std::string& HostPlatform::Name() const { return name_; }
+const std::string& HostPlatform::Name() const {
+  return kHostPlatformId->GetNameAsStringRef();
+}
 
 absl::StatusOr<std::unique_ptr<DeviceDescription>>
 HostPlatform::DescriptionForDevice(int ordinal) const {

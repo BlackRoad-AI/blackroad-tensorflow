@@ -73,8 +73,6 @@ static absl::Status PlatformInitialize() {
 
 }  // namespace
 
-CudaPlatform::CudaPlatform() : name_("CUDA") {}
-
 CudaPlatform::~CudaPlatform() {
   nvmlReturn_t shutdown_result = nvmlShutdown();
   if (shutdown_result != NVML_SUCCESS) {
@@ -102,7 +100,9 @@ int CudaPlatform::VisibleDeviceCount() const {
   return num_devices;
 }
 
-const std::string& CudaPlatform::Name() const { return name_; }
+const std::string& CudaPlatform::Name() const {
+  return cuda::kCudaPlatformId->GetNameAsStringRef();
+}
 
 absl::StatusOr<std::unique_ptr<DeviceDescription>>
 CudaPlatform::DescriptionForDevice(int ordinal) const {

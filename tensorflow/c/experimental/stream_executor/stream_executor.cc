@@ -430,7 +430,8 @@ CPlatform::CPlatform(SP_Platform platform,
       device_fns_(std::move(device_fns)),
       stream_executor_(std::move(stream_executor)),
       timer_fns_(std::move(timer_fns)),
-      name_(platform.name) {}
+      interpreter_platform_id_info_(InterpreterPlatformIdInfo(platform_.name)) {
+}
 
 CPlatform::~CPlatform() {
   platform_fns_.destroy_device_fns(&platform_, &device_fns_);
@@ -446,7 +447,7 @@ CPlatform::DescriptionForDevice(int ordinal) const {
   // and call GetDeviceDescription. executor_cache_.Get would need
   // to be made const for it to work.
   DeviceDescription desc;
-  desc.set_name(name_);
+  desc.set_name(Name());
   return std::make_unique<DeviceDescription>(std::move(desc));
 }
 absl::StatusOr<StreamExecutor*> CPlatform::FindExisting(int ordinal) {
@@ -473,7 +474,7 @@ absl::StatusOr<std::unique_ptr<StreamExecutor>> CPlatform::GetUncachedExecutor(
 
   return std::make_unique<CStreamExecutor>(this, std::move(device),
                                            &device_fns_, &stream_executor_,
-                                           &platform_, &platform_fns_, name_);
+                                           &platform_, &platform_fns_, Name());
 }
 
 absl::Status InitStreamExecutorPlugin(void* dso_handle,

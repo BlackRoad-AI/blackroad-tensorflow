@@ -62,8 +62,6 @@ static absl::Status PlatformInitialize() {
 }
 }  // namespace
 
-ROCmPlatform::ROCmPlatform() : name_("ROCM") {}
-
 Platform::Id ROCmPlatform::id() const { return rocm::kROCmPlatformId; }
 
 int ROCmPlatform::VisibleDeviceCount() const {
@@ -84,7 +82,9 @@ int ROCmPlatform::VisibleDeviceCount() const {
   return device_count;
 }
 
-const std::string& ROCmPlatform::Name() const { return name_; }
+const std::string& ROCmPlatform::Name() const {
+  return rocm::kROCmPlatformId->GetNameAsStringRef();
+}
 
 absl::StatusOr<std::unique_ptr<DeviceDescription>>
 ROCmPlatform::DescriptionForDevice(int ordinal) const {

@@ -43,7 +43,7 @@ namespace tpu {
 const ::stream_executor::Platform::Id TpuPlatform::kId = GetTpuPlatformId();
 TpuPlatform* tpu_registered_platform = nullptr;
 
-TpuPlatform::TpuPlatform() : name_("TPU") {
+TpuPlatform::TpuPlatform() {
   platform_ = stream_executor::tpu::ExecutorApiFn()->TpuPlatform_NewFn();
   CHECK(platform_ != nullptr);
 }
@@ -96,7 +96,9 @@ TpuPlatform::GetUncachedExecutor(int ordinal) {
   return TpuPlatform::kId;
 }
 
-const std::string& TpuPlatform::Name() const { return name_; }
+const std::string& TpuPlatform::Name() const {
+  return GetTpuPlatformId()->GetNameAsStringRef();
+}
 
 bool TpuPlatform::ShouldRegisterTpuDeviceToDeviceCopy() {
   return stream_executor::tpu::ExecutorApiFn()

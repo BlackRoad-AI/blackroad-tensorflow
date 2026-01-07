@@ -31,8 +31,6 @@ limitations under the License.
 namespace stream_executor {
 namespace sycl {
 
-SyclPlatform::SyclPlatform() : name_("SYCL") {}
-
 SyclPlatform::~SyclPlatform() {}
 
 Platform::Id SyclPlatform::id() const { return kSyclPlatformId; }
@@ -43,7 +41,9 @@ int SyclPlatform::VisibleDeviceCount() const {
   return num_devices;
 }
 
-const std::string& SyclPlatform::Name() const { return name_; }
+const std::string& SyclPlatform::Name() const {
+  return kSyclPlatformId->GetNameAsStringRef();
+}
 
 absl::StatusOr<std::unique_ptr<DeviceDescription>>
 SyclPlatform::DescriptionForDevice(int ordinal) const {

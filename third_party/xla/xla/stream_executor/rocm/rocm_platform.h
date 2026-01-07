@@ -33,7 +33,7 @@ namespace gpu {
 // initializer.
 class ROCmPlatform : public Platform {
  public:
-  ROCmPlatform();
+  ROCmPlatform() = default;
 
   // Platform interface implementation:
   // Returns the same value as kROCmPlatform above.
@@ -56,9 +56,6 @@ class ROCmPlatform : public Platform {
   // Ownership IS transferred to the caller.
   absl::StatusOr<std::unique_ptr<StreamExecutor>> GetUncachedExecutor(
       int ordinal);
-
-  // This platform's name.
-  std::string name_;
 
   // mutex that guards internal state.
   mutable absl::Mutex mu_;

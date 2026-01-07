@@ -120,7 +120,6 @@ class TpuPlatform : public ::tensorflow::tpu::TpuPlatformInterface {
   GetUncachedExecutor(int ordinal);
 
   mutable SE_Platform* platform_;
-  std::string name_;
   stream_executor::ExecutorCache executor_cache_;
   StreamMap stream_map_;
   EventMap event_map_;

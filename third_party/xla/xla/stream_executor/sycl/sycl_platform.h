@@ -31,7 +31,7 @@ namespace stream_executor::sycl {
 // initializer.
 class SyclPlatform : public Platform {
  public:
-  SyclPlatform();
+  SyclPlatform() = default;
   ~SyclPlatform() override;
 
   // Platform interface implementation:
@@ -54,9 +54,6 @@ class SyclPlatform : public Platform {
   // Ownership IS transferred to the caller.
   absl::StatusOr<std::unique_ptr<StreamExecutor>> GetUncachedExecutor(
       int ordinal);
-
-  // This platform's name.
-  std::string name_;
 
   // Cache of created executors.
   ExecutorCache executor_cache_;

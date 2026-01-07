@@ -24,6 +24,7 @@ limitations under the License.
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "xla/stream_executor/device_description.h"
 
 namespace stream_executor {
@@ -42,21 +43,43 @@ class Platform {
  public:
   virtual ~Platform() = default;
 
+  // Returns additional information about the platform ID.
+  class IdInfo {
+   public:
+    virtual ~IdInfo() = default;
+    // Returns the platforms name.
+    virtual absl::string_view GetName() const { return GetNameAsStringRef(); };
+    // Returns the platforms name as a string reference.
+    // Needed because some callers expect a `const std::string&`, but `GetName`
+    // should be preferred in most cases.
+    virtual const std::string& GetNameAsStringRef() const = 0;
+  };
+
   // A platform ID is a unique identifier for each registered platform type -
   // each platform is required to expose an ID to ensure unique registration and
   // as a target against which plugins can register.
   //
   // The macro below is provided to help generate a [process-unique] identifier.
-  using Id = void*;
+  using Id = IdInfo*;
 
 // Helper macro to define a plugin ID. To be used only inside plugin
 // implementation files. Works by "reserving" an address/value (guaranteed to be
 // unique) inside a process space.
-#define PLATFORM_DEFINE_ID(ID_VAR_NAME) \
-  namespace {                           \
-  int plugin_id_value;                  \
-  }                                     \
-  const ::stream_executor::Platform::Id ID_VAR_NAME = &plugin_id_value;
+//
+// ID_VAR_NAME: The name of the variable to initialize with the platform ID.
+// PLATFORM_NAME: The string name of the platform.
+#define PLATFORM_DEFINE_ID(ID_VAR_NAME, PLATFORM_NAME)                   \
+  namespace {                                                            \
+  class InternalIdInfo : public ::stream_executor::Platform::IdInfo {    \
+   public:                                                               \
+    const std::string& GetNameAsStringRef() const override {             \
+      static const absl::NoDestructor<std::string> name(#PLATFORM_NAME); \
+      return *name;                                                      \
+    }                                                                    \
+  };                                                                     \
+  static absl::NoDestructor<InternalIdInfo> internal_id_info;            \
+  }                                                                      \
+  const ::stream_executor::Platform::Id ID_VAR_NAME = &*internal_id_info;
 
   // Returns a key uniquely identifying this platform.
   virtual Id id() const = 0;
@@ -101,7 +124,7 @@ class Platform {
   // Ownership of the executor is NOT transferred to the caller --
   // the Platform owns the executors in a singleton-like fashion.
   virtual absl::StatusOr<StreamExecutor*> ExecutorForDevice(int ordinal) = 0;
-};
+};  // namespace stream_executor
 
 }  // namespace stream_executor
 
