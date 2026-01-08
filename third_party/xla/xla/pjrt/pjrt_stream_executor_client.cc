@@ -121,6 +121,7 @@ limitations under the License.
 #include "xla/pjrt/local_device_state.h"
 #include "xla/pjrt/metrics.h"
 #include "xla/pjrt/mlir_to_hlo.h"
+#include "xla/pjrt/never_run_on_fiber.h"
 #include "xla/pjrt/pjrt_client.h"
 #include "xla/pjrt/pjrt_common.h"
 #include "xla/pjrt/pjrt_compiler.h"
@@ -191,7 +192,8 @@ void PjRtStreamExecutorClient::ThenRecordEvent(BufferSequencingEventRef event,
 absl::Status PjRtStreamExecutorClient::AllocateAndRecordEvent(
     BufferSequencingEventRef event, LocalDeviceState* local_device,
     se::Stream* stream) {
-  return local_device->AllocateAndRecordEvent(event, stream);
+  return local_device->AllocateAndRecordEvent(async_work_runner(), event,
+                                              stream);
 }
 
 void PjRtStreamExecutorClient::SetEventAsError(BufferSequencingEventRef event,
@@ -666,12 +668,8 @@ PjRtStreamExecutorClient::LinearizeHostBufferInto(
   bool must_use_staging_buffer =
       host_buffer_semantics == HostBufferSemantics::kImmutableOnlyDuringCall ||
       !host_and_device_strides_equal || packed_size != size;
-  // Allocating multigigabyte pinned buffers can be very slow. In that case,
-  // using a staging buffer is probably worse than not using one.
-  // TODO(phawkins): add chunking for transfers.
-  if (must_use_staging_buffer || (!IsDmaMapped(data, packed_size) &&
-                                  (should_stage_host_to_device_transfers() &&
-                                   packed_size < (int64_t{1} << 30)))) {
+  if (must_use_staging_buffer ||
+      ShouldStageHostToDeviceTransfers(data, packed_size)) {
     staging_buffer =
         host_memory_allocator()->Allocate(transpose ? size : packed_size);
   }
@@ -942,8 +940,10 @@ absl::Status PjRtStreamExecutorClient::DmaMap(void* data, size_t buffer_size) {
       LocalDeviceState * local_device,
       tensorflow::down_cast<PjRtStreamExecutorDevice*>(addressable_devices_[0])
           ->GetLocalDeviceState());
-  bool success = local_device->compute_stream()->parent()->HostMemoryRegister(
-      data, buffer_size);
+  bool success = NeverRunOnFiber(async_work_runner(), [&]() {
+    return local_device->compute_stream()->parent()->HostMemoryRegister(
+        data, buffer_size);
+  });
   if (!success) {
     return absl::InternalError(absl::StrFormat(
         "Failed to register host memory at address: %ps", data));
@@ -959,8 +959,9 @@ absl::Status PjRtStreamExecutorClient::DmaUnmap(void* data) {
       LocalDeviceState * local_device,
       tensorflow::down_cast<PjRtStreamExecutorDevice*>(addressable_devices_[0])
           ->GetLocalDeviceState());
-  bool success =
-      local_device->compute_stream()->parent()->HostMemoryUnregister(data);
+  bool success = NeverRunOnFiber(async_work_runner(), [&]() {
+    return local_device->compute_stream()->parent()->HostMemoryUnregister(data);
+  });
   if (!success) {
     return absl::InternalError(absl::StrFormat(
         "Failed to unregister host memory at address: %ps", data));
@@ -975,16 +976,26 @@ absl::Status PjRtStreamExecutorDevice::TransferToInfeed(
     const LiteralSlice& literal) {
   // Only support infeed to local device.
   TF_ASSIGN_OR_RETURN(LocalDeviceState * local_device, GetLocalDeviceState());
-  return local_device->client()->TransferToInfeedLocal(
-      literal, local_device->local_hardware_id().value());
+  return NeverRunOnFiber(
+      tensorflow::down_cast<PjRtStreamExecutorClient*>(client_)
+          ->async_work_runner(),
+      [&]() {
+        return local_device->client()->TransferToInfeedLocal(
+            literal, local_device->local_hardware_id().value());
+      });
 }
 
 absl::Status PjRtStreamExecutorDevice::TransferFromOutfeed(
     MutableBorrowingLiteral literal) {
   VLOG(1) << "PjRtStreamExecutorDevice::TransferFromOutfeed";
   TF_ASSIGN_OR_RETURN(LocalDeviceState * local_device, GetLocalDeviceState());
-  return local_device->client()->TransferFromOutfeedLocal(
-      local_device->local_hardware_id().value(), literal);
+  return NeverRunOnFiber(
+      tensorflow::down_cast<PjRtStreamExecutorClient*>(client_)
+          ->async_work_runner(),
+      [&]() {
+        return local_device->client()->TransferFromOutfeedLocal(
+            local_device->local_hardware_id().value(), literal);
+      });
 }
 
 void PjRtStreamExecutorDevice::AttachMemorySpace(PjRtMemorySpace* memory_space,

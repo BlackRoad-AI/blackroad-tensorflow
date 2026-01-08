@@ -145,8 +145,7 @@ PjRtStreamExecutorRawBuffer::CopyRawHostToDeviceAndReturnEvent(
     std::shared_ptr<void> staging_buffer;
     auto status = [&]() -> absl::Status {
       if (transfer_size > 0) {
-        if (client->should_stage_host_to_device_transfers() &&
-            !client->IsDmaMapped(src, transfer_size)) {
+        if (client->ShouldStageHostToDeviceTransfers(src, transfer_size)) {
           if (client->host_memory_allocator() == nullptr) {
             return absl::InvalidArgumentError(
                 "host_memory_allocator should be initialized for "
@@ -201,8 +200,7 @@ PjRtStreamExecutorRawBuffer::CopyRawDeviceToHostAndReturnEvent(
     client->WaitForAllocation(stream, *buf);
     auto status = [&]() -> absl::Status {
       if (transfer_size > 0) {
-        if (client->should_stage_host_to_device_transfers() &&
-            !client->IsDmaMapped(dst, transfer_size)) {
+        if (client->ShouldStageHostToDeviceTransfers(dst, transfer_size)) {
           if (client->host_memory_allocator() == nullptr) {
             return absl::InvalidArgumentError(
                 "host_memory_allocator should be initialized for "
@@ -327,7 +325,8 @@ void PjRtStreamExecutorRawBuffer::CopyToLiteralAsync(
         }
 
         absl::StatusOr<EventPool::Handle> event_or =
-            local_device->event_pool().AllocateEvent(stream->parent());
+            local_device->event_pool().AllocateEvent(
+                client->async_work_runner(), stream->parent());
         if (!event_or.ok()) {
           promise.Set(event_or.status());
           client->SetEventAsError(usage_event, event_or.status());
@@ -426,7 +425,8 @@ void PjRtStreamExecutorRawBuffer::CopyTo(
           se::Stream* stream = local_device->GetDeviceToDeviceStream();
 
           absl::StatusOr<EventPool::Handle> event_or =
-              local_device->event_pool().AllocateEvent(stream->parent());
+              local_device->event_pool().AllocateEvent(
+                  client->async_work_runner(), stream->parent());
           if (!event_or.ok()) {
             client->SetEventAsError(usage_event, event_or.status());
             return;
